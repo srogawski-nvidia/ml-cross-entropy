@@ -12,7 +12,7 @@ As language models grow ever larger, so do their vocabularies. This has shifted 
 
 **Requirements**
 
-1. Python 3.10+
+1. Python 3.9+
 2. PyTorch 2.4+
 3. Triton 3.0+
 4. Ampere (or newer) GPU
@@ -158,6 +158,27 @@ dpo_loss = -F.logsigmoid(nll[dispreferred].sum(-1) - nll[preferred].sum(-1))
 
 # PPO
 ppo_loss = -torch.minimum(toch.exp(-nll - old_logp) * adv, adv + eps * adv.abs())
+```
+
+
+### Z Loss
+
+`linear_cross_entropy` can also be used to compute Z loss (a loss on the logsumexp).
+
+```python
+from cut_cross_entropy import linear_cross_entropy
+
+loss, lse = linear_cross_entropy(embeddings, classifier, labels, ..., return_lse=True)
+
+z_loss = lse.pow(2).mean()
+
+# We also have a helper function to compute Z loss that will automatically remove ignored tokens/etc.
+from cut_cross_entropy.utils import compute_z_loss
+
+z_loss = compute_z_loss(lse, labels, shift=shift)
+
+
+loss = loss + z_loss_weight * z_loss
 ```
 
 
