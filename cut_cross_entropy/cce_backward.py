@@ -34,6 +34,7 @@ def _mm_backward(
     EVEN_D: tl.constexpr,
     USE_KAHAN: tl.constexpr,
     DOT_PRECISION: tl.constexpr,
+    num_stages: tl.constexpr,
 ):
     d_inds = tl.arange(0, BLOCK_D)[None, :].to(tl.int64)
 
@@ -42,7 +43,7 @@ def _mm_backward(
     if USE_KAHAN:
         dac_ptrs = dac_ptrs + d_inds * stride_ad
 
-    for d in range(0, tl.cdiv(D, BLOCK_D)):
+    for d in tl.range(0, tl.cdiv(D, BLOCK_D), num_stages):
         if EVEN_D:
             mask = partial_mask_b
         else:
@@ -135,6 +136,7 @@ def _cce_backward_kernel(
     COMPUTE_DE: tl.constexpr,
     COMPUTE_DBIAS: tl.constexpr,
     DOT_PRECISION: tl.constexpr,
+    num_stages: tl.constexpr,
 ):
     pid = tl.program_id(axis=0)
     num_b_chunks = tl.cdiv(B, BLOCK_B)
@@ -159,7 +161,7 @@ def _cce_backward_kernel(
     c_ptrs = C + (offs_v[None, :] * stride_cv + offs_d[:, None] * stride_cd)
 
     accum = tl.zeros((BLOCK_B, BLOCK_V), dtype=tl.float32)
-    for d in range(0, tl.cdiv(D, BLOCK_D)):
+    for d in tl.range(0, tl.cdiv(D, BLOCK_D), num_stages):
         e_mask = offs_b[:, None] < BMax
         if not EVEN_D:
             e_mask = e_mask & (offs_d[None, :] < (D - d * BLOCK_D))
@@ -280,6 +282,7 @@ def _cce_backward_kernel(
                 MM_BACK_EVEN_D,
                 KAHAN_E,
                 DOT_PRECISION,
+                num_stages,
             )
 
     if COMPUTE_DC:
@@ -307,6 +310,7 @@ def _cce_backward_kernel(
                 MM_BACK_EVEN_D,
                 KAHAN_C,
                 DOT_PRECISION,
+                num_stages,
             )
 
 
